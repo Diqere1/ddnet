@@ -497,9 +497,18 @@ void CGameClient::OnDummySwap()
         m_Controls.ResetInput(PlayerOrDummy);
         m_Controls.m_aInputData[PlayerOrDummy].m_Hook = 0;
     }
-    int tmp = m_DummyInput.m_Fire;
-    m_DummyInput = m_Controls.m_aInputData[!g_Config.m_ClDummy];
-    m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire = tmp;
+    // For dummy2 and dummy3, reset inputs instead of copying from another connection
+    // to prevent input replay issues
+    if(g_Config.m_ClDummy >= 2)
+    {
+        m_DummyInput = {};
+    }
+    else
+    {
+        int tmp = m_DummyInput.m_Fire;
+        m_DummyInput = m_Controls.m_aInputData[!g_Config.m_ClDummy];
+        m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire = tmp;
+    }
     m_IsDummySwapping = 1;
 }
 
@@ -509,12 +518,36 @@ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
     {
         return m_Controls.SnapInput(pData);
     }
-    if(m_aLocalIds[!g_Config.m_ClDummy] < 0)
+
+    // Determine which connection this input is for
+    // The loop in SendInput calculates: i = g_Config.m_ClDummy ^ Dummy
+    int InputConnection = g_Config.m_ClDummy ^ Dummy;
+
+    // Determine the currently controlled connection
+    int ControlledConnection = g_Config.m_ClDummy;
+
+    // Check if the controlled connection has a valid character
+    if(m_aLocalIds[ControlledConnection] < 0)
     {
         return 0;
     }
 
-    if(!g_Config.m_ClDummyHammer)
+    // Determine which connection should receive special commands (like cl_dummyhammer)
+    // The pairs are: (0 <-> 1) and (2 <-> 3)
+    int TargetConnection;
+    if(ControlledConnection <= 1)
+    {
+        TargetConnection = 1 - ControlledConnection; // 0->1, 1->0
+    }
+    else
+    {
+        TargetConnection = 5 - ControlledConnection; // 2->3, 3->2
+    }
+
+    // Only apply special logic (like hammer) if this input is for the target connection
+    bool ShouldApplySpecialLogic = (InputConnection == TargetConnection);
+
+    if(!g_Config.m_ClDummyHammer || !ShouldApplySpecialLogic)
     {
         if(m_DummyFire != 0)
         {
@@ -546,9 +579,13 @@ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
             m_DummyInput.m_WantedWeapon = WEAPON_HAMMER + 1;
         }
 
-        const vec2 Dir = m_LocalCharacterPos - m_aClients[m_aLocalIds[!g_Config.m_ClDummy]].m_Predicted.m_Pos;
-        m_HammerInput.m_TargetX = (int)Dir.x;
-        m_HammerInput.m_TargetY = (int)Dir.y;
+        // Calculate direction towards the controlled character
+        if(m_aLocalIds[ControlledConnection] >= 0)
+        {
+            const vec2 Dir = m_LocalCharacterPos - m_aClients[m_aLocalIds[ControlledConnection]].m_Predicted.m_Pos;
+            m_HammerInput.m_TargetX = (int)Dir.x;
+            m_HammerInput.m_TargetY = (int)Dir.y;
+        }
 
         mem_copy(pData, &m_HammerInput, sizeof(m_HammerInput));
         return sizeof(m_HammerInput);

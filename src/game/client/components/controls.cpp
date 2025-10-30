@@ -260,7 +260,18 @@ int CControls::SnapInput(int *pData)
             pDummyInput->m_NextWeapon += m_aInputData[g_Config.m_ClDummy].m_NextWeapon - m_aLastData[g_Config.m_ClDummy].m_NextWeapon;
             pDummyInput->m_PrevWeapon += m_aInputData[g_Config.m_ClDummy].m_PrevWeapon - m_aLastData[g_Config.m_ClDummy].m_PrevWeapon;
 
-            m_aInputData[!g_Config.m_ClDummy] = *pDummyInput;
+            // For player (0) and dummy1 (1): copy to each other
+            // For dummy2 (2) and dummy3 (3): copy to each other
+            int TargetConnection;
+            if(g_Config.m_ClDummy <= 1)
+            {
+                TargetConnection = 1 - g_Config.m_ClDummy; // 0->1, 1->0
+            }
+            else
+            {
+                TargetConnection = 5 - g_Config.m_ClDummy; // 2->3, 3->2
+            }
+            m_aInputData[TargetConnection] = *pDummyInput;
         }
 
         if(g_Config.m_ClDummyControl)
