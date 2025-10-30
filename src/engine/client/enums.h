@@ -5,7 +5,7 @@
 
 enum
 {
-	NUM_DUMMIES = 2,
+    NUM_DUMMIES = 4,
 };
 
 #endif
