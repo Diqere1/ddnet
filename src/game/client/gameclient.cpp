@@ -509,6 +509,12 @@ void CGameClient::OnDummySwap()
         m_Controls.m_aInputData[PlayerOrDummy].m_Hook = 0;
     }
 
+    // Always reset fire state to prevent input replay/stuttering
+    m_DummyFire = 0;
+    m_HammerInput.m_Fire &= INPUT_STATE_MASK;
+    if((m_HammerInput.m_Fire & 1) != 0)
+        m_HammerInput.m_Fire++;
+
     // For dummy2 and dummy3, reset inputs instead of copying from another connection
     // to prevent input replay issues
     if(g_Config.m_ClDummy >= 2)
@@ -569,13 +575,26 @@ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
             m_DummyFire = 0;
         }
 
-        if(!Force && (!m_DummyInput.m_Direction && !m_DummyInput.m_Jump && !m_DummyInput.m_Hook))
+        // Create a copy of the input to potentially modify before sending
+        CNetObj_PlayerInput InputToSend = m_DummyInput;
+
+        // Only send Fire input to the paired connection to prevent input replay on other dummies
+        if(InputConnection != TargetConnection)
+        {
+            // Clear fire for connections that are not the target
+            // Preserve the fire state (even/odd) but ensure it's released
+            if((InputToSend.m_Fire & 1) != 0)
+                InputToSend.m_Fire++;
+            InputToSend.m_Fire &= INPUT_STATE_MASK;
+        }
+
+        if(!Force && (!InputToSend.m_Direction && !InputToSend.m_Jump && !InputToSend.m_Hook))
         {
             return 0;
         }
 
-        mem_copy(pData, &m_DummyInput, sizeof(m_DummyInput));
-        return sizeof(m_DummyInput);
+        mem_copy(pData, &InputToSend, sizeof(InputToSend));
+        return sizeof(InputToSend);
     }
     else
     {
