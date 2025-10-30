@@ -491,22 +491,36 @@ void CGameClient::OnUpdate()
 
 void CGameClient::OnDummySwap()
 {
+    // Determine the paired connection based on which dummy we're switching to
+    int PairedConnection;
+    if(g_Config.m_ClDummy <= 1)
+    {
+        PairedConnection = 1 - g_Config.m_ClDummy; // 0->1, 1->0
+    }
+    else
+    {
+        PairedConnection = 5 - g_Config.m_ClDummy; // 2->3, 3->2
+    }
+
     if(g_Config.m_ClDummyResetOnSwitch)
     {
-        int PlayerOrDummy = (g_Config.m_ClDummyResetOnSwitch == 2) ? g_Config.m_ClDummy : (!g_Config.m_ClDummy);
+        int PlayerOrDummy = (g_Config.m_ClDummyResetOnSwitch == 2) ? g_Config.m_ClDummy : PairedConnection;
         m_Controls.ResetInput(PlayerOrDummy);
         m_Controls.m_aInputData[PlayerOrDummy].m_Hook = 0;
     }
+
     // For dummy2 and dummy3, reset inputs instead of copying from another connection
     // to prevent input replay issues
     if(g_Config.m_ClDummy >= 2)
     {
         m_DummyInput = {};
+        // Also reset input data for the newly controlled dummy to prevent input replay
+        m_Controls.ResetInput(g_Config.m_ClDummy);
     }
     else
     {
         int tmp = m_DummyInput.m_Fire;
-        m_DummyInput = m_Controls.m_aInputData[!g_Config.m_ClDummy];
+        m_DummyInput = m_Controls.m_aInputData[PairedConnection];
         m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire = tmp;
     }
     m_IsDummySwapping = 1;
@@ -580,9 +594,11 @@ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
         }
 
         // Calculate direction towards the controlled character
-        if(m_aLocalIds[ControlledConnection] >= 0)
+        // InputConnection is the dummy receiving the hammer command
+        // ControlledConnection is the character we're controlling (the target)
+        if(m_aLocalIds[ControlledConnection] >= 0 && m_aLocalIds[InputConnection] >= 0)
         {
-            const vec2 Dir = m_LocalCharacterPos - m_aClients[m_aLocalIds[ControlledConnection]].m_Predicted.m_Pos;
+            const vec2 Dir = m_aClients[m_aLocalIds[ControlledConnection]].m_Predicted.m_Pos - m_aClients[m_aLocalIds[InputConnection]].m_Predicted.m_Pos;
             m_HammerInput.m_TargetX = (int)Dir.x;
             m_HammerInput.m_TargetY = (int)Dir.y;
         }
@@ -3054,8 +3070,19 @@ void CGameClient::SendKill() const
 
     if(g_Config.m_ClDummyCopyMoves)
     {
+        // Determine the paired connection based on which connection is currently controlled
+        int PairedConnection;
+        if(g_Config.m_ClDummy <= 1)
+        {
+            PairedConnection = 1 - g_Config.m_ClDummy; // 0->1, 1->0
+        }
+        else
+        {
+            PairedConnection = 5 - g_Config.m_ClDummy; // 2->3, 3->2
+        }
+
         CMsgPacker MsgP(NETMSGTYPE_CL_KILL, false);
-        Client()->SendMsg(!g_Config.m_ClDummy, &MsgP, MSGFLAG_VITAL);
+        Client()->SendMsg(PairedConnection, &MsgP, MSGFLAG_VITAL);
     }
 }
 
@@ -4466,11 +4493,22 @@ void CGameClient::DummyResetInput()
     if((m_DummyInput.m_Fire & 1) != 0)
         m_DummyInput.m_Fire++;
 
-    m_Controls.ResetInput(!g_Config.m_ClDummy);
-    m_Controls.m_aInputData[!g_Config.m_ClDummy].m_Hook = 0;
-    m_Controls.m_aInputData[!g_Config.m_ClDummy].m_Fire = m_DummyInput.m_Fire;
+    // Determine the paired connection based on which connection is currently controlled
+    int PairedConnection;
+    if(g_Config.m_ClDummy <= 1)
+    {
+        PairedConnection = 1 - g_Config.m_ClDummy; // 0->1, 1->0
+    }
+    else
+    {
+        PairedConnection = 5 - g_Config.m_ClDummy; // 2->3, 3->2
+    }
 
-    m_DummyInput = m_Controls.m_aInputData[!g_Config.m_ClDummy];
+    m_Controls.ResetInput(PairedConnection);
+    m_Controls.m_aInputData[PairedConnection].m_Hook = 0;
+    m_Controls.m_aInputData[PairedConnection].m_Fire = m_DummyInput.m_Fire;
+
+    m_DummyInput = m_Controls.m_aInputData[PairedConnection];
 }
 
 bool CGameClient::CanDisplayWarning() const
