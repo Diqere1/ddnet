@@ -1579,7 +1579,7 @@ void CClient::ProcessServerPacket(CNetChunk *pPacket, int Conn, bool Dummy)
                 return;
             }
 
-            if(m_DummyConnected && !m_DummyReconnectOnReload)
+            if(DummyConnected() && !m_DummyReconnectOnReload)
             {
                 DummyDisconnect(nullptr);
             }
@@ -1710,7 +1710,7 @@ void CClient::ProcessServerPacket(CNetChunk *pPacket, int Conn, bool Dummy)
         }
         else if(Conn == CONN_MAIN && (pPacket->m_Flags & NET_CHUNKFLAG_VITAL) != 0 && Msg == NETMSG_MAP_RELOAD)
         {
-            if(m_DummyConnected)
+            if(DummyConnected())
             {
                 m_DummyReconnectOnReload = true;
                 m_DummyDeactivateOnReconnect = g_Config.m_ClDummy == 0;
@@ -2872,7 +2872,7 @@ void CClient::Update()
             m_DummyDeactivateOnReconnect = false;
             g_Config.m_ClDummy = 0;
         }
-        else if(!m_DummyConnected && m_DummyDeactivateOnReconnect)
+        else if(!DummyConnected() && m_DummyDeactivateOnReconnect)
         {
             m_DummyDeactivateOnReconnect = false;
         }
