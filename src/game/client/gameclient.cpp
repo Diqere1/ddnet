@@ -2922,7 +2922,7 @@ void CGameClient::SendInfo(bool Start)
     }
 }
 
-void CGameClient::SendDummyInfo(bool Start)
+void CGameClient::SendDummyInfo(bool Start, int DummyIndex)
 {
     if(m_pClient->IsSixup())
     {
@@ -2932,10 +2932,13 @@ void CGameClient::SendDummyInfo(bool Start)
             SendSkinChange7(true);
         return;
     }
+    
+    int ConnIndex = IClient::CONN_MAIN + DummyIndex;
+    
     if(Start)
     {
         CNetMsg_Cl_StartInfo Msg;
-        Msg.m_pName = Client()->DummyName();
+        Msg.m_pName = Client()->DummyName(DummyIndex);
         Msg.m_pClan = g_Config.m_ClDummyClan;
         Msg.m_Country = g_Config.m_ClDummyCountry;
         Msg.m_pSkin = g_Config.m_ClDummySkin;
@@ -2944,13 +2947,13 @@ void CGameClient::SendDummyInfo(bool Start)
         Msg.m_ColorFeet = g_Config.m_ClDummyColorFeet;
         CMsgPacker Packer(&Msg);
         Msg.Pack(&Packer);
-        Client()->SendMsg(IClient::CONN_DUMMY, &Packer, MSGFLAG_VITAL);
-        m_aCheckInfo[1] = -1;
+        Client()->SendMsg(ConnIndex, &Packer, MSGFLAG_VITAL);
+        m_aCheckInfo[DummyIndex] = -1;
     }
     else
     {
         CNetMsg_Cl_ChangeInfo Msg;
-        Msg.m_pName = Client()->DummyName();
+        Msg.m_pName = Client()->DummyName(DummyIndex);
         Msg.m_pClan = g_Config.m_ClDummyClan;
         Msg.m_Country = g_Config.m_ClDummyCountry;
         Msg.m_pSkin = g_Config.m_ClDummySkin;
@@ -2959,8 +2962,8 @@ void CGameClient::SendDummyInfo(bool Start)
         Msg.m_ColorFeet = g_Config.m_ClDummyColorFeet;
         CMsgPacker Packer(&Msg);
         Msg.Pack(&Packer);
-        Client()->SendMsg(IClient::CONN_DUMMY, &Packer, MSGFLAG_VITAL);
-        m_aCheckInfo[1] = Client()->GameTickSpeed();
+        Client()->SendMsg(ConnIndex, &Packer, MSGFLAG_VITAL);
+        m_aCheckInfo[DummyIndex] = Client()->GameTickSpeed();
     }
 }
 

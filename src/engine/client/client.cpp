@@ -784,6 +784,94 @@ void CClient::DummyConnect()
     m_aGametimeMarginGraphs[DummyToConnect].Init(-150.0f, 150.0f);
 }
 
+void CClient::DummyConnect2()
+{
+    if(m_aNetClient[CONN_MAIN].State() != NETSTATE_ONLINE)
+    {
+        log_info("client", "Not online.");
+        return;
+    }
+
+    if(!DummyAllowed())
+    {
+        log_info("client", "Dummy is not allowed on this server.");
+        return;
+    }
+
+    const int DummyToConnect = 2;
+    if(m_aDummyConnected[DummyToConnect] || m_aDummyConnecting[DummyToConnect])
+    {
+        log_info("client", "Dummy2 is already connected or connecting.");
+        return;
+    }
+
+    if(DummyConnectingDelayed())
+    {
+        log_info("client", "Wait before connecting dummy again.");
+        return;
+    }
+
+    int ConnIndex = CONN_MAIN + DummyToConnect;
+    m_LastDummyConnectTime = GlobalTime();
+    m_aRconAuthed[DummyToConnect] = 0;
+    m_aDummySendConnInfo[DummyToConnect] = true;
+
+    g_Config.m_ClDummyCopyMoves = 0;
+    g_Config.m_ClDummyHammer = 0;
+
+    m_aDummyConnecting[DummyToConnect] = true;
+    if(IsSixup())
+        m_aNetClient[ConnIndex].Connect7(m_aNetClient[CONN_MAIN].ServerAddress(), DummyToConnect);
+    else
+        m_aNetClient[ConnIndex].Connect(m_aNetClient[CONN_MAIN].ServerAddress(), DummyToConnect);
+
+    m_aGametimeMarginGraphs[DummyToConnect].Init(-150.0f, 150.0f);
+}
+
+void CClient::DummyConnect3()
+{
+    if(m_aNetClient[CONN_MAIN].State() != NETSTATE_ONLINE)
+    {
+        log_info("client", "Not online.");
+        return;
+    }
+
+    if(!DummyAllowed())
+    {
+        log_info("client", "Dummy is not allowed on this server.");
+        return;
+    }
+
+    const int DummyToConnect = 3;
+    if(m_aDummyConnected[DummyToConnect] || m_aDummyConnecting[DummyToConnect])
+    {
+        log_info("client", "Dummy3 is already connected or connecting.");
+        return;
+    }
+
+    if(DummyConnectingDelayed())
+    {
+        log_info("client", "Wait before connecting dummy again.");
+        return;
+    }
+
+    int ConnIndex = CONN_MAIN + DummyToConnect;
+    m_LastDummyConnectTime = GlobalTime();
+    m_aRconAuthed[DummyToConnect] = 0;
+    m_aDummySendConnInfo[DummyToConnect] = true;
+
+    g_Config.m_ClDummyCopyMoves = 0;
+    g_Config.m_ClDummyHammer = 0;
+
+    m_aDummyConnecting[DummyToConnect] = true;
+    if(IsSixup())
+        m_aNetClient[ConnIndex].Connect7(m_aNetClient[CONN_MAIN].ServerAddress(), DummyToConnect);
+    else
+        m_aNetClient[ConnIndex].Connect(m_aNetClient[CONN_MAIN].ServerAddress(), DummyToConnect);
+
+    m_aGametimeMarginGraphs[DummyToConnect].Init(-150.0f, 150.0f);
+}
+
 void CClient::DummyDisconnect(const char *pReason)
 {
     for(int i = 1; i <= 3; i++)
@@ -1038,12 +1126,38 @@ const char *CClient::PlayerName() const
     return "nameless tee";
 }
 
-const char *CClient::DummyName()
+const char *CClient::DummyName(int DummyIndex)
 {
-    if(g_Config.m_ClDummyName[0])
+    const char *pConfigName = nullptr;
+    char *pAutomaticName = nullptr;
+    const char *pPrefix = "[D] ";
+    
+    switch(DummyIndex)
     {
-        return g_Config.m_ClDummyName;
+    case 1:
+        pConfigName = g_Config.m_ClDummyName[0] ? g_Config.m_ClDummyName : nullptr;
+        pAutomaticName = m_aAutomaticDummyName;
+        pPrefix = "[D] ";
+        break;
+    case 2:
+        pConfigName = g_Config.m_ClDummy2Name[0] ? g_Config.m_ClDummy2Name : nullptr;
+        pAutomaticName = m_aAutomaticDummy2Name;
+        pPrefix = "[D2] ";
+        break;
+    case 3:
+        pConfigName = g_Config.m_ClDummy3Name[0] ? g_Config.m_ClDummy3Name : nullptr;
+        pAutomaticName = m_aAutomaticDummy3Name;
+        pPrefix = "[D3] ";
+        break;
+    default:
+        return "brainless tee";
     }
+    
+    if(pConfigName)
+    {
+        return pConfigName;
+    }
+    
     const char *pBase = nullptr;
     if(g_Config.m_PlayerName[0])
     {
@@ -1053,10 +1167,10 @@ const char *CClient::DummyName()
     {
         pBase = g_Config.m_SteamName;
     }
-    if(pBase)
+    if(pBase && pAutomaticName)
     {
-        str_format(m_aAutomaticDummyName, sizeof(m_aAutomaticDummyName), "[D] %s", pBase);
-        return m_aAutomaticDummyName;
+        str_format(pAutomaticName, MAX_NAME_LENGTH, "%s%s", pPrefix, pBase);
+        return pAutomaticName;
     }
     return "brainless tee";
 }
@@ -3222,7 +3336,7 @@ void CClient::Run()
                 SendInfo(ConnIndex);
                 m_aNetClient[ConnIndex].Update();
                 SendReady(ConnIndex);
-                GameClient()->SendDummyInfo(true);
+                GameClient()->SendDummyInfo(true, i);
                 SendEnterGame(ConnIndex);
             }
         }
@@ -3498,6 +3612,18 @@ void CClient::Con_DummyConnect(IConsole::IResult *pResult, void *pUserData)
 {
     CClient *pSelf = (CClient *)pUserData;
     pSelf->DummyConnect();
+}
+
+void CClient::Con_DummyConnect2(IConsole::IResult *pResult, void *pUserData)
+{
+    CClient *pSelf = (CClient *)pUserData;
+    pSelf->DummyConnect2();
+}
+
+void CClient::Con_DummyConnect3(IConsole::IResult *pResult, void *pUserData)
+{
+    CClient *pSelf = (CClient *)pUserData;
+    pSelf->DummyConnect3();
 }
 
 void CClient::Con_DummyDisconnect(IConsole::IResult *pResult, void *pUserData)
@@ -4466,6 +4592,8 @@ void CClient::RegisterCommands()
     m_pConsole = Kernel()->RequestInterface<IConsole>();
 
     m_pConsole->Register("dummy_connect", "", CFGFLAG_CLIENT, Con_DummyConnect, this, "Connect dummy");
+    m_pConsole->Register("dummy_connect2", "", CFGFLAG_CLIENT, Con_DummyConnect2, this, "Connect dummy2");
+    m_pConsole->Register("dummy_connect3", "", CFGFLAG_CLIENT, Con_DummyConnect3, this, "Connect dummy3");
     m_pConsole->Register("dummy_disconnect", "", CFGFLAG_CLIENT, Con_DummyDisconnect, this, "Disconnect dummy");
     m_pConsole->Register("dummy_reset", "", CFGFLAG_CLIENT, Con_DummyResetInput, this, "Reset dummy");
 

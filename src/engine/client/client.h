@@ -271,6 +271,8 @@ class CClient : public IClient, public CDemoPlayer::IListener
 
     // For DummyName function
     char m_aAutomaticDummyName[MAX_NAME_LENGTH];
+    char m_aAutomaticDummy2Name[MAX_NAME_LENGTH];
+    char m_aAutomaticDummy3Name[MAX_NAME_LENGTH];
 
 public:
     IConfigManager *ConfigManager() { return m_pConfigManager; }
@@ -334,6 +336,8 @@ public:
 
     void DummyDisconnect(const char *pReason) override;
     void DummyConnect() override;
+    void DummyConnect2() override;
+    void DummyConnect3() override;
     bool DummyConnected() const override;
     bool DummyConnecting() const override;
     bool DummyConnectingDelayed() const override;
@@ -362,7 +366,7 @@ public:
     void Quit() override;
 
     const char *PlayerName() const override;
-    const char *DummyName() override;
+    const char *DummyName(int DummyIndex = 1) override;
     const char *ErrorString() const override;
 
     const char *LoadMap(const char *pName, const char *pFilename, SHA256_DIGEST *pWantedSha256, unsigned WantedCrc);
@@ -412,6 +416,8 @@ public:
     static void Con_Disconnect(IConsole::IResult *pResult, void *pUserData);
 
     static void Con_DummyConnect(IConsole::IResult *pResult, void *pUserData);
+    static void Con_DummyConnect2(IConsole::IResult *pResult, void *pUserData);
+    static void Con_DummyConnect3(IConsole::IResult *pResult, void *pUserData);
     static void Con_DummyDisconnect(IConsole::IResult *pResult, void *pUserData);
     static void Con_DummyResetInput(IConsole::IResult *pResult, void *pUserData);
 
