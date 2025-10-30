@@ -2935,16 +2935,59 @@ void CGameClient::SendDummyInfo(bool Start, int DummyIndex)
     
     int ConnIndex = IClient::CONN_MAIN + DummyIndex;
     
+    const char *pClan;
+    int Country;
+    const char *pSkin;
+    int UseCustomColor;
+    int ColorBody;
+    int ColorFeet;
+    
+    switch(DummyIndex)
+    {
+    case 1:
+        pClan = g_Config.m_ClDummyClan;
+        Country = g_Config.m_ClDummyCountry;
+        pSkin = g_Config.m_ClDummySkin;
+        UseCustomColor = g_Config.m_ClDummyUseCustomColor;
+        ColorBody = g_Config.m_ClDummyColorBody;
+        ColorFeet = g_Config.m_ClDummyColorFeet;
+        break;
+    case 2:
+        pClan = g_Config.m_ClDummy2Clan;
+        Country = g_Config.m_ClDummy2Country;
+        pSkin = g_Config.m_ClDummy2Skin;
+        UseCustomColor = g_Config.m_ClDummy2UseCustomColor;
+        ColorBody = g_Config.m_ClDummy2ColorBody;
+        ColorFeet = g_Config.m_ClDummy2ColorFeet;
+        break;
+    case 3:
+        pClan = g_Config.m_ClDummy3Clan;
+        Country = g_Config.m_ClDummy3Country;
+        pSkin = g_Config.m_ClDummy3Skin;
+        UseCustomColor = g_Config.m_ClDummy3UseCustomColor;
+        ColorBody = g_Config.m_ClDummy3ColorBody;
+        ColorFeet = g_Config.m_ClDummy3ColorFeet;
+        break;
+    default:
+        pClan = g_Config.m_ClDummyClan;
+        Country = g_Config.m_ClDummyCountry;
+        pSkin = g_Config.m_ClDummySkin;
+        UseCustomColor = g_Config.m_ClDummyUseCustomColor;
+        ColorBody = g_Config.m_ClDummyColorBody;
+        ColorFeet = g_Config.m_ClDummyColorFeet;
+        break;
+    }
+    
     if(Start)
     {
         CNetMsg_Cl_StartInfo Msg;
         Msg.m_pName = Client()->DummyName(DummyIndex);
-        Msg.m_pClan = g_Config.m_ClDummyClan;
-        Msg.m_Country = g_Config.m_ClDummyCountry;
-        Msg.m_pSkin = g_Config.m_ClDummySkin;
-        Msg.m_UseCustomColor = g_Config.m_ClDummyUseCustomColor;
-        Msg.m_ColorBody = g_Config.m_ClDummyColorBody;
-        Msg.m_ColorFeet = g_Config.m_ClDummyColorFeet;
+        Msg.m_pClan = pClan;
+        Msg.m_Country = Country;
+        Msg.m_pSkin = pSkin;
+        Msg.m_UseCustomColor = UseCustomColor;
+        Msg.m_ColorBody = ColorBody;
+        Msg.m_ColorFeet = ColorFeet;
         CMsgPacker Packer(&Msg);
         Msg.Pack(&Packer);
         Client()->SendMsg(ConnIndex, &Packer, MSGFLAG_VITAL);
@@ -2954,12 +2997,12 @@ void CGameClient::SendDummyInfo(bool Start, int DummyIndex)
     {
         CNetMsg_Cl_ChangeInfo Msg;
         Msg.m_pName = Client()->DummyName(DummyIndex);
-        Msg.m_pClan = g_Config.m_ClDummyClan;
-        Msg.m_Country = g_Config.m_ClDummyCountry;
-        Msg.m_pSkin = g_Config.m_ClDummySkin;
-        Msg.m_UseCustomColor = g_Config.m_ClDummyUseCustomColor;
-        Msg.m_ColorBody = g_Config.m_ClDummyColorBody;
-        Msg.m_ColorFeet = g_Config.m_ClDummyColorFeet;
+        Msg.m_pClan = pClan;
+        Msg.m_Country = Country;
+        Msg.m_pSkin = pSkin;
+        Msg.m_UseCustomColor = UseCustomColor;
+        Msg.m_ColorBody = ColorBody;
+        Msg.m_ColorFeet = ColorFeet;
         CMsgPacker Packer(&Msg);
         Msg.Pack(&Packer);
         Client()->SendMsg(ConnIndex, &Packer, MSGFLAG_VITAL);
