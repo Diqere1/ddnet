@@ -520,6 +520,8 @@ void CGameClient::OnDummySwap()
     if(g_Config.m_ClDummy >= 2)
     {
         m_DummyInput = {};
+        // Ensure fire is in released state (even value)
+        m_DummyInput.m_Fire = 0;
         // Also reset input data for the newly controlled dummy to prevent input replay
         m_Controls.ResetInput(g_Config.m_ClDummy);
     }
@@ -529,6 +531,12 @@ void CGameClient::OnDummySwap()
         m_DummyInput = m_Controls.m_aInputData[PairedConnection];
         m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire = tmp;
     }
+    
+    // Ensure m_DummyInput.m_Fire is in released state (even value)
+    m_DummyInput.m_Fire &= INPUT_STATE_MASK;
+    if((m_DummyInput.m_Fire & 1) != 0)
+        m_DummyInput.m_Fire++;
+    
     m_IsDummySwapping = 1;
 }
 
@@ -569,32 +577,30 @@ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
 
     if(!g_Config.m_ClDummyHammer || !ShouldApplySpecialLogic)
     {
+        // Only send input to the target connection to prevent input replay issues
+        // This ensures that when switching between any dummies, old inputs aren't replayed
+        if(InputConnection != TargetConnection)
+        {
+            // Don't send any input to non-target connections
+            return 0;
+        }
+
         if(m_DummyFire != 0)
         {
-            m_DummyInput.m_Fire = (m_HammerInput.m_Fire + 1) & ~1;
+            // Ensure fire is released by making it even
+            m_DummyInput.m_Fire &= INPUT_STATE_MASK;
+            if((m_DummyInput.m_Fire & 1) != 0)
+                m_DummyInput.m_Fire++;
             m_DummyFire = 0;
         }
 
-        // Create a copy of the input to potentially modify before sending
-        CNetObj_PlayerInput InputToSend = m_DummyInput;
-
-        // Only send Fire input to the paired connection to prevent input replay on other dummies
-        if(InputConnection != TargetConnection)
-        {
-            // Clear fire for connections that are not the target
-            // Preserve the fire state (even/odd) but ensure it's released
-            if((InputToSend.m_Fire & 1) != 0)
-                InputToSend.m_Fire++;
-            InputToSend.m_Fire &= INPUT_STATE_MASK;
-        }
-
-        if(!Force && (!InputToSend.m_Direction && !InputToSend.m_Jump && !InputToSend.m_Hook))
+        if(!Force && (!m_DummyInput.m_Direction && !m_DummyInput.m_Jump && !m_DummyInput.m_Hook))
         {
             return 0;
         }
 
-        mem_copy(pData, &InputToSend, sizeof(InputToSend));
-        return sizeof(InputToSend);
+        mem_copy(pData, &m_DummyInput, sizeof(m_DummyInput));
+        return sizeof(m_DummyInput);
     }
     else
     {
