@@ -169,6 +169,8 @@ public:
     // dummy
     virtual void DummyDisconnect(const char *pReason) = 0;
     virtual void DummyConnect() = 0;
+    virtual void DummyConnect2() = 0;
+    virtual void DummyConnect3() = 0;
     virtual bool DummyConnected() const = 0;
     virtual bool DummyConnecting() const = 0;
     virtual bool DummyConnectingDelayed() const = 0;
@@ -270,7 +272,7 @@ public:
 
     //
     virtual const char *PlayerName() const = 0;
-    virtual const char *DummyName() = 0;
+    virtual const char *DummyName(int DummyIndex = 1) = 0;
     virtual const char *ErrorString() const = 0;
     virtual const char *LatestVersion() const = 0;
     virtual bool ConnectionProblems() const = 0;
@@ -375,7 +377,7 @@ public:
 
     virtual int OnSnapInput(int *pData, bool Dummy, bool Force) = 0;
     virtual void OnDummySwap() = 0;
-    virtual void SendDummyInfo(bool Start) = 0;
+    virtual void SendDummyInfo(bool Start, int DummyIndex = 1) = 0;
 
     virtual const char *GetItemName(int Type) const = 0;
     virtual const char *Version() const = 0;
