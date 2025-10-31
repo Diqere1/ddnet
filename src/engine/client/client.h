@@ -180,7 +180,7 @@ class CClient : public IClient, public CDemoPlayer::IListener
     } m_aInputs[NUM_DUMMIES][200];
 
     int m_aCurrentInput[NUM_DUMMIES] = {0, 0, 0, 0};
-    bool m_LastDummy = false;
+    int m_LastDummy = 0;
     bool m_aDummySendConnInfo[NUM_DUMMIES] = {false, false, false, false};
     bool m_aDummyConnecting[NUM_DUMMIES] = {false, false, false, false};
     bool m_aDummyConnected[NUM_DUMMIES] = {false, false, false, false};

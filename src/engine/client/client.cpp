@@ -701,7 +701,7 @@ void CClient::DisconnectWithReason(const char *pReason)
     m_aapSnapshots[0][SNAP_CURRENT] = nullptr;
     m_aapSnapshots[0][SNAP_PREV] = nullptr;
     m_aReceivedSnapshots[0] = 0;
-    m_LastDummy = false;
+    m_LastDummy = 0;
 
     // 0.7
     m_TranslationContext.Reset();
@@ -2847,7 +2847,7 @@ void CClient::Update()
     }
     else if(State() == IClient::STATE_ONLINE)
     {
-        if(m_LastDummy != (bool)g_Config.m_ClDummy)
+        if(m_LastDummy != g_Config.m_ClDummy)
         {
             // Invalidate references to !m_ClDummy snapshots
             GameClient()->InvalidateSnapshot();
@@ -2882,7 +2882,15 @@ void CClient::Update()
             int64_t Now = m_aGameTime[g_Config.m_ClDummy].Get(time_get());
             int64_t PredNow = m_PredictedTime.Get(time_get());
 
-            if(m_LastDummy != (bool)g_Config.m_ClDummy && m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV])
+            bool DummySwitched = (m_LastDummy != g_Config.m_ClDummy);
+            
+            if(DummySwitched && m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV])
+            {
+                // Suppress events when catching up to avoid sound/effect replay
+                GameClient()->SuppressEvents(true);
+            }
+
+            if(DummySwitched && m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV])
             {
                 // Load snapshot for m_ClDummy
                 GameClient()->OnNewSnapshot();
@@ -2906,6 +2914,12 @@ void CClient::Update()
 
                 GameClient()->OnNewSnapshot();
                 Repredict = true;
+            }
+
+            // Re-enable events after processing accumulated snapshots
+            if(DummySwitched && m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV])
+            {
+                GameClient()->SuppressEvents(false);
             }
 
             if(m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV])
@@ -2991,7 +3005,7 @@ void CClient::Update()
             m_DummyDeactivateOnReconnect = false;
         }
 
-        m_LastDummy = (bool)g_Config.m_ClDummy;
+        m_LastDummy = g_Config.m_ClDummy;
     }
 
     // STRESS TEST: join the server again

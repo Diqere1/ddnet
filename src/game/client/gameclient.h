@@ -582,6 +582,7 @@ public:
     void OnActivateEditor() override;
     void OnDummySwap() override;
     int OnSnapInput(int *pData, bool Dummy, bool Force) override;
+    void SuppressEvents(bool Suppress) override;
     void OnShutdown() override;
     void OnEnterGame() override;
     void OnRconType(bool UsernameReq) override;

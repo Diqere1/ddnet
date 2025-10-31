@@ -540,6 +540,11 @@ void CGameClient::OnDummySwap()
     m_IsDummySwapping = 1;
 }
 
+void CGameClient::SuppressEvents(bool Suppress)
+{
+    m_SuppressEvents = Suppress;
+}
+
 int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
 {
     if(!Dummy)
