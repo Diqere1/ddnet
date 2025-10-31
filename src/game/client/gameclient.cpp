@@ -515,8 +515,17 @@ void CGameClient::OnDummySwap()
     if((m_HammerInput.m_Fire & 1) != 0)
         m_HammerInput.m_Fire++;
 
+    // Reset fire state for both current and paired connection to prevent unwanted shots
+    // Make sure fire is in released state (even value) before swapping
+    m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire &= INPUT_STATE_MASK;
+    if((m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire & 1) != 0)
+        m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire++;
+    
+    m_Controls.m_aInputData[PairedConnection].m_Fire &= INPUT_STATE_MASK;
+    if((m_Controls.m_aInputData[PairedConnection].m_Fire & 1) != 0)
+        m_Controls.m_aInputData[PairedConnection].m_Fire++;
+
     // Swap fire states between current and paired connection for all dummies
-    // This prevents unwanted fire actions when switching
     int tmp = m_DummyInput.m_Fire;
     m_DummyInput = m_Controls.m_aInputData[PairedConnection];
     m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire = tmp;
