@@ -23,10 +23,28 @@ void CPixelWalk::HandlePixelWalk()
     static bool s_RightPrev = false;
     static int s_PendingReverse = 0;
 
+    // Проверка стен вплотную слева/справа от игрока
+    int LocalId = GameClient()->m_aLocalIds[Dummy];
+    if(LocalId < 0)
+        return;
+    const vec2 Pos = GameClient()->m_aClients[LocalId].m_Predicted.m_Pos;
+    const float R = 15.0f; // радиус ти
+    const float Eps = 0.01f;
+    const bool WallRight = GameClient()->Collision()->CheckPoint((int)(Pos.x + R + Eps), (int)Pos.y);
+    const bool WallLeft = GameClient()->Collision()->CheckPoint((int)(Pos.x - R - Eps), (int)Pos.y);
+
     // Если ожидается обратный тик, делаем его и сбрасываем
     if(s_PendingReverse != 0)
     {
-        Input.m_Direction = -s_PendingReverse;
+        int Desired = -s_PendingReverse; // -1: влево, 1: вправо
+        if((Desired < 0 && WallLeft) || (Desired > 0 && WallRight))
+        {
+            // Если обратный тик упирается в стену, гасим его
+            s_PendingReverse = 0;
+            Input.m_Direction = 0;
+            return;
+        }
+        Input.m_Direction = Desired;
         s_PendingReverse = 0;
         return;
     }
@@ -34,13 +52,31 @@ void CPixelWalk::HandlePixelWalk()
     // Фронт нажатия — активируем движение и ставим обратный тик
     if(Left && !s_LeftPrev)
     {
-        Input.m_Direction = -1;
-        s_PendingReverse = -1;
+        if(!WallLeft)
+        {
+            Input.m_Direction = -1;
+            s_PendingReverse = -1;
+        }
+        else
+        {
+            // Влево упёрлись в стену — ничего не делаем и не ставим реверс
+            Input.m_Direction = 0;
+            s_PendingReverse = 0;
+        }
     }
     else if(Right && !s_RightPrev)
     {
-        Input.m_Direction = 1;
-        s_PendingReverse = 1;
+        if(!WallRight)
+        {
+            Input.m_Direction = 1;
+            s_PendingReverse = 1;
+        }
+        else
+        {
+            // Вправо упёрлись в стену — ничего не делаем и не ставим реверс
+            Input.m_Direction = 0;
+            s_PendingReverse = 0;
+        }
     }
     else
     {

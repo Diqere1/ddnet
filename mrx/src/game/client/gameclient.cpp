@@ -592,6 +592,7 @@ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
     {
         bool IsDummyFrozen = m_aClients[m_aLocalIds[!g_Config.m_ClDummy]].m_FreezeEnd > 0;
         static int s_TargetHoldTicks = 0;
+        static vec2 s_HoldAim = vec2(0.f, 0.f);
         static int64_t LastHammerTime = 0; // Время последнего удара молотом
         const vec2 PlayerPos = m_LocalCharacterPos;
         const vec2 DummyPos = m_aClients[m_aLocalIds[!g_Config.m_ClDummy]].m_Predicted.m_Pos;
@@ -601,8 +602,15 @@ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
         static int64_t LastHookTime = 0; // Время последнего использования хука
         int64_t HammerCooldown = time_freq() * TuningList()[0].m_HammerHitFireDelay / 1000.0f; // Преобразуем миллисекунды в тики
         int CurrentWeapon = m_aClients[m_aLocalIds[!g_Config.m_ClDummy]].m_Predicted.m_ActiveWeapon;
-        float Distance = distance(PlayerPos, DummyPos);
-        bool CanHit = (CurrentWeapon == WEAPON_HAMMER) ? (Distance < 63) : true;
+        // Серверная геометрия удара молотом: центр круга = DummyPos + AimDir*(0.75R), попадание по центрам: <= 1.5R
+        const float R = 28.0f;
+        const float CenterOffset = 0.75f * R; // 21
+        const float HitRadiusCenters = 1.5f * R; // 42
+        vec2 IntendedAimDir = normalize(PlayerPos - DummyPos);
+        if(length(IntendedAimDir) < 1e-3f)
+            IntendedAimDir = vec2(1.f, 0.f);
+        vec2 IntendedProjStart = DummyPos + IntendedAimDir * CenterOffset;
+        bool CanHit = (CurrentWeapon == WEAPON_HAMMER) ? (distance(IntendedProjStart, PlayerPos) <= HitRadiusCenters) : true;
 
 
         if(IsDummyFrozen)
@@ -667,9 +675,9 @@ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
 
         if(s_TargetHoldTicks > 0 && g_Config.m_MRXTargetHit > 0 && !m_DummyInput.m_Hook)
         {
-            const vec2 DirHold = m_LocalCharacterPos - m_aClients[m_aLocalIds[!g_Config.m_ClDummy]].m_Predicted.m_Pos;
-            m_HammerInput.m_TargetX = (int)DirHold.x;
-            m_HammerInput.m_TargetY = (int)DirHold.y;
+            // Держим прицел на значении тика удара, не обновляя по позиции цели
+            m_HammerInput.m_TargetX = (int)s_HoldAim.x;
+            m_HammerInput.m_TargetY = (int)s_HoldAim.y;
             --s_TargetHoldTicks;
         }
 
@@ -717,10 +725,11 @@ int CGameClient::OnSnapInput(int *pData, bool Dummy, bool Force)
                     // Проверяем, прошло ли достаточно времени с последнего использования хука
                     if(CurrentTime - LastHookTime > time_freq() * 0.01f) // 10 мс
                     {
-                        // Направляем молот в сторону игрока
+                        // Направляем молот в сторону игрока и фиксируем это направление для удержания
                         const vec2 Dir = m_LocalCharacterPos - m_aClients[m_aLocalIds[!g_Config.m_ClDummy]].m_Predicted.m_Pos;
                         m_HammerInput.m_TargetX = (int)Dir.x;
                         m_HammerInput.m_TargetY = (int)Dir.y;
+                        s_HoldAim = Dir;
                         s_TargetHoldTicks = g_Config.m_MRXTargetHit;
                         // Активируем удар молотом
                         m_HammerInput.m_Fire = (m_HammerInput.m_Fire + 1) | 1;

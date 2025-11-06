@@ -62,8 +62,17 @@ void CAdvancedDeepFly::HandleAdvancedDeepFlyFire()
 		if(!GameClient()->m_Snap.m_pLocalCharacter)
 			return;
 
-		float Distance = distance(LocalPos, DummyPos);
-		if(Distance > 62.85f)
+		// Серверная геометрия удара молотом: центр круга = LocalPos + AimDir * (0.75R),
+		// попадание по центрам: <= 1.5R. Берём R=28, без запаса.
+		const float R = 28.0f;
+		const float CenterOffset = 0.75f * R; // 21
+		const float HitRadiusCenters = 1.5f * R; // 42
+		vec2 AimDir = normalize(vec2(GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy].m_TargetX,
+			GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy].m_TargetY));
+		if(length(AimDir) < 1e-3f)
+			AimDir = normalize(DummyPos - LocalPos);
+		vec2 ProjStartPos = LocalPos + AimDir * CenterOffset;
+		if(distance(ProjStartPos, DummyPos) > HitRadiusCenters)
 			return;
 
 		GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire++;
@@ -118,8 +127,17 @@ void CAdvancedDeepFly::HandleAdvancedDeepFly()
 	vec2 LocalPos = GameClient()->m_aClients[LocalId].m_RenderPos;
 	vec2 DummyPos = GameClient()->m_aClients[DummyId].m_RenderPos;
 
-	float Distance = distance(LocalPos, DummyPos);
-	if(Distance > 62.85f)
+	// Серверная геометрия удара молотом: центр круга = LocalPos + AimDir * (0.75R),
+	// попадание по центрам: <= 1.5R. Берём R=28, без запаса.
+	const float R = 28.0f;
+	const float CenterOffset = 0.75f * R; // 21
+	const float HitRadiusCenters = 1.5f * R; // 42
+	vec2 AimDir = normalize(vec2(GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy].m_TargetX,
+		GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy].m_TargetY));
+	if(length(AimDir) < 1e-3f)
+		AimDir = normalize(DummyPos - LocalPos);
+	vec2 ProjStartPos = LocalPos + AimDir * CenterOffset;
+	if(distance(ProjStartPos, DummyPos) > HitRadiusCenters)
 		return;
 
 	vec2 Direction = normalize(DummyPos - LocalPos);
@@ -134,17 +152,14 @@ void CAdvancedDeepFly::HandleAdvancedDeepFly()
 		OriginalAim = Direction * 200.0f;
 	}
 
-	vec2 NormalizedOriginalAim = normalize(OriginalAim);
-
-	float DotProduct = dot(NormalizedOriginalAim, Direction);
-
-	DotProduct = std::clamp(DotProduct, -1.0f, 1.0f);
-
-	float AbsAngleDiff = acos(DotProduct);
-
-	const float HAMMER_TOLERANCE = 0.5f;
-
-	bool AimCorrectionNeeded = AbsAngleDiff > HAMMER_TOLERANCE;
+	// Серверная геометрия удара молотом вместо углового порога:
+	// если текущий Aim не даёт попадания в круг (LocalPos + AimDir * 0.75R, радиус 1.5R),
+	// только тогда корректируем Aim на Direction к Dummy
+	vec2 AimDirNow = normalize(OriginalAim);
+	if(length(AimDirNow) < 1e-3f)
+		AimDirNow = Direction;
+	vec2 ProjStartPosNow = LocalPos + AimDirNow * CenterOffset;
+	bool AimCorrectionNeeded = distance(ProjStartPosNow, DummyPos) > HitRadiusCenters;
 
 	if(AimCorrectionNeeded)
 	{

@@ -561,7 +561,15 @@ int CControls::SnapInput(int *pData)
 			{
 				vec2 LocalPos = GameClient()->m_aClients[LocalId].m_Predicted.m_Pos;
 				bool HasPlayerNearby = false;
-				const float FireRadius = 63.0f;
+				// Серверная геометрия удара молотом: центр круга = LocalPos + AimDir * (0.75R),
+				// попадание по центрам: <= 1.5R. Берём R=28 и без запаса.
+				const float R = 28.0f;
+				const float CenterOffset = 0.75f * R; // 21
+				const float HitRadiusCenters = 1.5f * R; // 42
+				vec2 AimDir = normalize(vec2(m_aInputData[g_Config.m_ClDummy].m_TargetX, m_aInputData[g_Config.m_ClDummy].m_TargetY));
+				if(length(AimDir) < 1e-3f)
+					AimDir = vec2(1.f, 0.f);
+				vec2 ProjStartPos = LocalPos + AimDir * CenterOffset;
 
 				// Проверяем всех клиентов
 				for(int i = 0; i < MAX_CLIENTS; i++)
@@ -573,9 +581,8 @@ int CControls::SnapInput(int *pData)
 						continue;
 
 					vec2 PlayerPos = GameClient()->m_aClients[i].m_Predicted.m_Pos;
-					float Dist = distance(LocalPos, PlayerPos);
-
-					if(Dist <= FireRadius)
+					float DistToHitCenter = distance(ProjStartPos, PlayerPos);
+					if(DistToHitCenter <= HitRadiusCenters)
 					{
 						HasPlayerNearby = true;
 						break;

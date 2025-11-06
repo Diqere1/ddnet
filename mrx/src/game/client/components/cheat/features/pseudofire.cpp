@@ -79,10 +79,21 @@ void CPseudofire::RunMRXDuoPseudo()
     }
     else
     {
-        // Проверка направления без автоприцеливания
-        vec2 AimDir = normalize(vec2(GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy].m_TargetX, GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy].m_TargetY));
-        float Angle = acosf(std::clamp(dot(AimDir, DirToTarget), -1.0f, 1.0f));
-        if(Angle > 0.56f) // 0.5 радиан - примерный порог, можно настроить
+        // Геометрическая проверка удара молотом без автоприцела (как на сервере)
+        // Центр круга удара: LocalPos + AimDir * (0.75R), радиус проверки по центрам: 0.5R + R
+        const float R = 28.0f;
+        const float CenterOffset = 0.75f * R; // 21
+        const float HitRadiusCenters = 1.5f * R; // 42
+        const float Epsilon = 0.0f; // небольшой запас под предикцию
+
+        vec2 AimDir = normalize(vec2(GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy].m_TargetX,
+                                      GameClient()->m_Controls.m_aInputData[g_Config.m_ClDummy].m_TargetY));
+        if(length(AimDir) < 1e-3f)
+            AimDir = vec2(1.f, 0.f);
+
+        vec2 ProjStartPos = LocalPos + AimDir * CenterOffset;
+        float HitDist = distance(ProjStartPos, TargetPos);
+        if(HitDist > (HitRadiusCenters + Epsilon))
         {
             if(g_Config.m_MRXDuoPseudoFire)
             {
