@@ -168,6 +168,7 @@ public:
 
     // dummy
     virtual void DummyDisconnect(const char *pReason) = 0;
+    virtual void DummyDisconnectAll(const char *pReason) = 0;
     virtual void DummyConnect() = 0;
     virtual void DummyConnect2() = 0;
     virtual void DummyConnect3() = 0;

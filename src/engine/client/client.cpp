@@ -874,6 +874,30 @@ void CClient::DummyConnect3()
 
 void CClient::DummyDisconnect(const char *pReason)
 {
+    // Disconnect only dummy 1 (CONN_DUMMY)
+    if(m_aDummyConnected[1] || m_aDummyConnecting[1])
+    {
+        m_aNetClient[CONN_DUMMY].Disconnect(pReason);
+        m_aRconAuthed[1] = 0;
+        m_aapSnapshots[1][SNAP_CURRENT] = nullptr;
+        m_aapSnapshots[1][SNAP_PREV] = nullptr;
+        m_aReceivedSnapshots[1] = 0;
+        m_aDummyConnected[1] = false;
+        m_aDummyConnecting[1] = false;
+        
+        // If we're currently controlling dummy 1, switch back to main
+        if(g_Config.m_ClDummy == 1)
+        {
+            g_Config.m_ClDummy = 0;
+        }
+        
+        GameClient()->OnDummyDisconnect();
+    }
+}
+
+void CClient::DummyDisconnectAll(const char *pReason)
+{
+    // Disconnect all dummies (1, 2, 3)
     for(int i = 1; i <= 3; i++)
     {
         if(m_aDummyConnected[i] || m_aDummyConnecting[i])
@@ -3700,6 +3724,12 @@ void CClient::Con_DummyDisconnect(IConsole::IResult *pResult, void *pUserData)
     pSelf->DummyDisconnect(nullptr);
 }
 
+void CClient::Con_DummyDisconnectAll(IConsole::IResult *pResult, void *pUserData)
+{
+    CClient *pSelf = (CClient *)pUserData;
+    pSelf->DummyDisconnectAll(nullptr);
+}
+
 void CClient::Con_DummyResetInput(IConsole::IResult *pResult, void *pUserData)
 {
     CClient *pSelf = (CClient *)pUserData;
@@ -4662,7 +4692,8 @@ void CClient::RegisterCommands()
     m_pConsole->Register("dummy_connect", "", CFGFLAG_CLIENT, Con_DummyConnect, this, "Connect dummy");
     m_pConsole->Register("dummy_connect2", "", CFGFLAG_CLIENT, Con_DummyConnect2, this, "Connect dummy2");
     m_pConsole->Register("dummy_connect3", "", CFGFLAG_CLIENT, Con_DummyConnect3, this, "Connect dummy3");
-    m_pConsole->Register("dummy_disconnect", "", CFGFLAG_CLIENT, Con_DummyDisconnect, this, "Disconnect dummy");
+    m_pConsole->Register("dummy_disconnect", "", CFGFLAG_CLIENT, Con_DummyDisconnect, this, "Disconnect dummy 1");
+    m_pConsole->Register("dummy_disconnect_all", "", CFGFLAG_CLIENT, Con_DummyDisconnectAll, this, "Disconnect all dummies");
     m_pConsole->Register("dummy_reset", "", CFGFLAG_CLIENT, Con_DummyResetInput, this, "Reset dummy");
 
     m_pConsole->Register("quit", "", CFGFLAG_CLIENT | CFGFLAG_STORE, Con_Quit, this, "Quit the client");

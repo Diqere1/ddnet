@@ -335,6 +335,7 @@ public:
     void Disconnect() override;
 
     void DummyDisconnect(const char *pReason) override;
+    void DummyDisconnectAll(const char *pReason) override;
     void DummyConnect() override;
     void DummyConnect2() override;
     void DummyConnect3() override;
@@ -419,6 +420,7 @@ public:
     static void Con_DummyConnect2(IConsole::IResult *pResult, void *pUserData);
     static void Con_DummyConnect3(IConsole::IResult *pResult, void *pUserData);
     static void Con_DummyDisconnect(IConsole::IResult *pResult, void *pUserData);
+    static void Con_DummyDisconnectAll(IConsole::IResult *pResult, void *pUserData);
     static void Con_DummyResetInput(IConsole::IResult *pResult, void *pUserData);
 
     static void Con_Quit(IConsole::IResult *pResult, void *pUserData);

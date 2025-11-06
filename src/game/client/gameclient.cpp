@@ -515,6 +515,37 @@ void CGameClient::OnDummySwap()
     if((m_HammerInput.m_Fire & 1) != 0)
         m_HammerInput.m_Fire++;
 
+    // Reset inputs for dummies from the other pair to prevent unwanted fire
+    // When switching between dummy 0/1, reset dummy 2/3, and vice versa
+    if(g_Config.m_ClDummy <= 1)
+    {
+        // Reset dummy 2 and 3
+        m_Controls.ResetInput(2);
+        m_Controls.ResetInput(3);
+    }
+    else
+    {
+        // Reset dummy 0 and 1
+        m_Controls.ResetInput(0);
+        m_Controls.ResetInput(1);
+    }
+
+    // For dummy2 and dummy3, reset inputs instead of copying from another connection
+    // to prevent input replay issues
+    if(g_Config.m_ClDummy >= 2)
+    {
+        m_DummyInput = {};
+        // Ensure fire is in released state (even value)
+        m_DummyInput.m_Fire = 0;
+        // Also reset input data for the newly controlled dummy to prevent input replay
+        m_Controls.ResetInput(g_Config.m_ClDummy);
+    }
+    else
+    {
+        int tmp = m_DummyInput.m_Fire;
+        m_DummyInput = m_Controls.m_aInputData[PairedConnection];
+        m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire = tmp;
+    }
     // Reset fire state for both current and paired connection to prevent unwanted shots
     // Make sure fire is in released state (even value) before swapping
     m_Controls.m_aInputData[g_Config.m_ClDummy].m_Fire &= INPUT_STATE_MASK;
