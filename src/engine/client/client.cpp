@@ -2852,12 +2852,48 @@ void CClient::Update()
             // Invalidate references to !m_ClDummy snapshots
             GameClient()->InvalidateSnapshot();
             GameClient()->OnDummySwap();
+
+            // When switching to a dummy, purge old accumulated snapshots to prevent freeze
+            // Keep only recent snapshots for smooth transition
+            if(m_aapSnapshots[g_Config.m_ClDummy][SNAP_CURRENT])
+            {
+                // Find the last snapshot in the storage
+                CSnapshotStorage::CHolder *pLastHolder = m_aSnapshotStorage[g_Config.m_ClDummy].m_pLast;
+                if(pLastHolder)
+                {
+                    // Purge all snapshots except the last few (keep ~5 ticks for smooth interpolation)
+                    int PurgeUntilTick = pLastHolder->m_Tick - 5;
+                    if(PurgeUntilTick > 0)
+                    {
+                        m_aSnapshotStorage[g_Config.m_ClDummy].PurgeUntil(PurgeUntilTick);
+                        
+                        // Reset snapshot pointers to the most recent ones
+                        m_aapSnapshots[g_Config.m_ClDummy][SNAP_CURRENT] = m_aSnapshotStorage[g_Config.m_ClDummy].m_pLast;
+                        m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV] = m_aSnapshotStorage[g_Config.m_ClDummy].m_pLast ? m_aSnapshotStorage[g_Config.m_ClDummy].m_pLast->m_pPrev : nullptr;
+                        
+                        // Update ticks to match the new snapshot pointers
+                        if(m_aapSnapshots[g_Config.m_ClDummy][SNAP_CURRENT])
+                        {
+                            m_aCurGameTick[g_Config.m_ClDummy] = m_aapSnapshots[g_Config.m_ClDummy][SNAP_CURRENT]->m_Tick;
+                        }
+                        if(m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV])
+                        {
+                            m_aPrevGameTick[g_Config.m_ClDummy] = m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV]->m_Tick;
+                        }
+                    }
+                }
+            }
         }
 
         if(m_aapSnapshots[!g_Config.m_ClDummy][SNAP_CURRENT])
         {
             // switch dummy snapshot
             int64_t Now = m_aGameTime[!g_Config.m_ClDummy].Get(time_get());
+            
+            // Limit snapshot processing to prevent freeze when switching dummies
+            int ProcessedSnapshots = 0;
+            const int MAX_SNAPSHOTS_PER_UPDATE = 10;
+            
             while(true)
             {
                 if(!m_aapSnapshots[!g_Config.m_ClDummy][SNAP_CURRENT]->m_pNext)
@@ -2872,6 +2908,13 @@ void CClient::Update()
                 // set ticks
                 m_aCurGameTick[!g_Config.m_ClDummy] = m_aapSnapshots[!g_Config.m_ClDummy][SNAP_CURRENT]->m_Tick;
                 m_aPrevGameTick[!g_Config.m_ClDummy] = m_aapSnapshots[!g_Config.m_ClDummy][SNAP_PREV]->m_Tick;
+                
+                // Prevent processing too many snapshots at once
+                ProcessedSnapshots++;
+                if(ProcessedSnapshots >= MAX_SNAPSHOTS_PER_UPDATE)
+                {
+                    break;
+                }
             }
         }
 
@@ -2889,6 +2932,10 @@ void CClient::Update()
                 Repredict = true;
             }
 
+            // Limit snapshot processing to prevent freeze when switching dummies
+            int ProcessedSnapshots = 0;
+            const int MAX_SNAPSHOTS_PER_UPDATE = 10;
+            
             while(true)
             {
                 if(!m_aapSnapshots[g_Config.m_ClDummy][SNAP_CURRENT]->m_pNext)
@@ -2906,6 +2953,13 @@ void CClient::Update()
 
                 GameClient()->OnNewSnapshot();
                 Repredict = true;
+                
+                // Prevent processing too many snapshots at once
+                ProcessedSnapshots++;
+                if(ProcessedSnapshots >= MAX_SNAPSHOTS_PER_UPDATE)
+                {
+                    break;
+                }
             }
 
             if(m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV])
