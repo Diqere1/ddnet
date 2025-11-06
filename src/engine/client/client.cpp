@@ -874,6 +874,30 @@ void CClient::DummyConnect3()
 
 void CClient::DummyDisconnect(const char *pReason)
 {
+    // Disconnect only dummy 1 (CONN_DUMMY)
+    if(m_aDummyConnected[1] || m_aDummyConnecting[1])
+    {
+        m_aNetClient[CONN_DUMMY].Disconnect(pReason);
+        m_aRconAuthed[1] = 0;
+        m_aapSnapshots[1][SNAP_CURRENT] = nullptr;
+        m_aapSnapshots[1][SNAP_PREV] = nullptr;
+        m_aReceivedSnapshots[1] = 0;
+        m_aDummyConnected[1] = false;
+        m_aDummyConnecting[1] = false;
+        
+        // If we're currently controlling dummy 1, switch back to main
+        if(g_Config.m_ClDummy == 1)
+        {
+            g_Config.m_ClDummy = 0;
+        }
+        
+        GameClient()->OnDummyDisconnect();
+    }
+}
+
+void CClient::DummyDisconnectAll(const char *pReason)
+{
+    // Disconnect all dummies (1, 2, 3)
     for(int i = 1; i <= 3; i++)
     {
         if(m_aDummyConnected[i] || m_aDummyConnecting[i])
@@ -2852,12 +2876,48 @@ void CClient::Update()
             // Invalidate references to !m_ClDummy snapshots
             GameClient()->InvalidateSnapshot();
             GameClient()->OnDummySwap();
+
+            // When switching to a dummy, purge old accumulated snapshots to prevent freeze
+            // Keep only recent snapshots for smooth transition
+            if(m_aapSnapshots[g_Config.m_ClDummy][SNAP_CURRENT])
+            {
+                // Find the last snapshot in the storage
+                CSnapshotStorage::CHolder *pLastHolder = m_aSnapshotStorage[g_Config.m_ClDummy].m_pLast;
+                if(pLastHolder)
+                {
+                    // Purge all snapshots except the last few (keep ~5 ticks for smooth interpolation)
+                    int PurgeUntilTick = pLastHolder->m_Tick - 5;
+                    if(PurgeUntilTick > 0)
+                    {
+                        m_aSnapshotStorage[g_Config.m_ClDummy].PurgeUntil(PurgeUntilTick);
+                        
+                        // Reset snapshot pointers to the most recent ones
+                        m_aapSnapshots[g_Config.m_ClDummy][SNAP_CURRENT] = m_aSnapshotStorage[g_Config.m_ClDummy].m_pLast;
+                        m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV] = m_aSnapshotStorage[g_Config.m_ClDummy].m_pLast ? m_aSnapshotStorage[g_Config.m_ClDummy].m_pLast->m_pPrev : nullptr;
+                        
+                        // Update ticks to match the new snapshot pointers
+                        if(m_aapSnapshots[g_Config.m_ClDummy][SNAP_CURRENT])
+                        {
+                            m_aCurGameTick[g_Config.m_ClDummy] = m_aapSnapshots[g_Config.m_ClDummy][SNAP_CURRENT]->m_Tick;
+                        }
+                        if(m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV])
+                        {
+                            m_aPrevGameTick[g_Config.m_ClDummy] = m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV]->m_Tick;
+                        }
+                    }
+                }
+            }
         }
 
         if(m_aapSnapshots[!g_Config.m_ClDummy][SNAP_CURRENT])
         {
             // switch dummy snapshot
             int64_t Now = m_aGameTime[!g_Config.m_ClDummy].Get(time_get());
+            
+            // Limit snapshot processing to prevent freeze when switching dummies
+            int ProcessedSnapshots = 0;
+            const int MAX_SNAPSHOTS_PER_UPDATE = 10;
+            
             while(true)
             {
                 if(!m_aapSnapshots[!g_Config.m_ClDummy][SNAP_CURRENT]->m_pNext)
@@ -2872,6 +2932,13 @@ void CClient::Update()
                 // set ticks
                 m_aCurGameTick[!g_Config.m_ClDummy] = m_aapSnapshots[!g_Config.m_ClDummy][SNAP_CURRENT]->m_Tick;
                 m_aPrevGameTick[!g_Config.m_ClDummy] = m_aapSnapshots[!g_Config.m_ClDummy][SNAP_PREV]->m_Tick;
+                
+                // Prevent processing too many snapshots at once
+                ProcessedSnapshots++;
+                if(ProcessedSnapshots >= MAX_SNAPSHOTS_PER_UPDATE)
+                {
+                    break;
+                }
             }
         }
 
@@ -2889,6 +2956,10 @@ void CClient::Update()
                 Repredict = true;
             }
 
+            // Limit snapshot processing to prevent freeze when switching dummies
+            int ProcessedSnapshots = 0;
+            const int MAX_SNAPSHOTS_PER_UPDATE = 10;
+            
             while(true)
             {
                 if(!m_aapSnapshots[g_Config.m_ClDummy][SNAP_CURRENT]->m_pNext)
@@ -2906,6 +2977,13 @@ void CClient::Update()
 
                 GameClient()->OnNewSnapshot();
                 Repredict = true;
+                
+                // Prevent processing too many snapshots at once
+                ProcessedSnapshots++;
+                if(ProcessedSnapshots >= MAX_SNAPSHOTS_PER_UPDATE)
+                {
+                    break;
+                }
             }
 
             if(m_aapSnapshots[g_Config.m_ClDummy][SNAP_PREV])
@@ -3630,6 +3708,12 @@ void CClient::Con_DummyDisconnect(IConsole::IResult *pResult, void *pUserData)
 {
     CClient *pSelf = (CClient *)pUserData;
     pSelf->DummyDisconnect(nullptr);
+}
+
+void CClient::Con_DummyDisconnectAll(IConsole::IResult *pResult, void *pUserData)
+{
+    CClient *pSelf = (CClient *)pUserData;
+    pSelf->DummyDisconnectAll(nullptr);
 }
 
 void CClient::Con_DummyResetInput(IConsole::IResult *pResult, void *pUserData)
@@ -4594,7 +4678,8 @@ void CClient::RegisterCommands()
     m_pConsole->Register("dummy_connect", "", CFGFLAG_CLIENT, Con_DummyConnect, this, "Connect dummy");
     m_pConsole->Register("dummy_connect2", "", CFGFLAG_CLIENT, Con_DummyConnect2, this, "Connect dummy2");
     m_pConsole->Register("dummy_connect3", "", CFGFLAG_CLIENT, Con_DummyConnect3, this, "Connect dummy3");
-    m_pConsole->Register("dummy_disconnect", "", CFGFLAG_CLIENT, Con_DummyDisconnect, this, "Disconnect dummy");
+    m_pConsole->Register("dummy_disconnect", "", CFGFLAG_CLIENT, Con_DummyDisconnect, this, "Disconnect dummy 1");
+    m_pConsole->Register("dummy_disconnect_all", "", CFGFLAG_CLIENT, Con_DummyDisconnectAll, this, "Disconnect all dummies");
     m_pConsole->Register("dummy_reset", "", CFGFLAG_CLIENT, Con_DummyResetInput, this, "Reset dummy");
 
     m_pConsole->Register("quit", "", CFGFLAG_CLIENT | CFGFLAG_STORE, Con_Quit, this, "Quit the client");
