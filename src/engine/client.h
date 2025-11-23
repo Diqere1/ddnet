@@ -168,6 +168,7 @@ public:
 
     // dummy
     virtual void DummyDisconnect(const char *pReason) = 0;
+    virtual void DummyDisconnectAll(const char *pReason) = 0;
     virtual void DummyConnect() = 0;
     virtual void DummyConnect2() = 0;
     virtual void DummyConnect3() = 0;
@@ -378,6 +379,7 @@ public:
     virtual int OnSnapInput(int *pData, bool Dummy, bool Force) = 0;
     virtual void OnDummySwap() = 0;
     virtual void SendDummyInfo(bool Start, int DummyIndex = 1) = 0;
+    virtual void SuppressEvents(bool Suppress) = 0;
 
     virtual const char *GetItemName(int Type) const = 0;
     virtual const char *Version() const = 0;

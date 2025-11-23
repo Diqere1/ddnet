@@ -1,0 +1,234 @@
+MRX UI: Пример готовой вкладки и использование хелперов
+
+Файл: src/game/client/components/menus_settings_mrx.cpp
+Класс: CMenus
+
+Этот пример показывает:
+- Адаптивную трёхколоночную разметку (Left/Mid/Right) с безопасными отступами
+- Организацию секций с фоном
+- Использование всех MRX UI-хелперов в строках
+  - DoCheckBoxRow
+  - DoGearToggleRow
+  - DoCircleToggleRow / DoCircleToggleInRect
+  - DoKeyBindRow
+  - DoSliderRow (включая pAdjust: l/r/ll/lr)
+  - DoLabeledDropDownRow (лейбл + капсульный дропдаун с авто-шириной)
+  - DoDropDownPill (если нужна ручная разбивка)
+- Паттерн для ScrollRegion с динамическими секциями
+
+----------------------------------------
+Шаблон функции вкладки
+----------------------------------------
+
+// Пример новой вкладки: Example
+// Обратите внимание на использование:
+//  - MARGIN, MARGIN_SMALL, MARGIN_BETWEEN_VIEWS (или MARGIN_BLOCKS)
+//  - s_SectionBoxes для фона секций
+//  - адаптивного разделения колонок
+
+void CMenus::RenderTabPageExample(CUIRect MainView)
+{
+    // Прокрутка
+    static CScrollRegion s_ScrollRegion;
+    static std::vector<CUIRect> s_SectionBoxes;
+    static vec2 s_PrevScrollOffset(0.0f, 0.0f);
+    vec2 ScrollOffset(0.0f, 0.0f);
+    CScrollRegionParams ScrollParams;
+    ScrollParams.m_ScrollUnit = 120.0f;
+    ScrollParams.m_Flags = CScrollRegionParams::FLAG_CONTENT_STATIC_WIDTH;
+    ScrollParams.m_ScrollbarMargin = 5.0f;
+    s_ScrollRegion.Begin(&MainView, &ScrollOffset, &ScrollParams);
+
+    MainView.y += ScrollOffset.y;
+    MainView.VSplitRight(5.0f, &MainView, nullptr);
+    MainView.VSplitLeft(2.0f, nullptr, &MainView);
+
+    // Три колонки
+    CUIRect LeftView, MidView, RightView;
+    float GapSize = MARGIN_BETWEEN_VIEWS; // или MARGIN_BLOCKS
+
+    // Минимальные ширины можно адаптировать
+    const float MinLeftWidth = 200.0f;
+    const float MinMidWidth = 260.0f;
+    const float MinRightWidth = 140.0f;
+
+    float AvailableWidth = MainView.w - 2 * GapSize;
+    float LeftWidth = 0.0f, MidWidth = 0.0f;
+
+    if(AvailableWidth >= (MinLeftWidth + MinMidWidth + MinRightWidth))
+    {
+        LeftWidth = std::max(MinLeftWidth, AvailableWidth * 0.30f);
+        MidWidth = std::max(MinMidWidth, AvailableWidth * 0.45f);
+    }
+    else if(AvailableWidth >= (MinLeftWidth + MinRightWidth))
+    {
+        LeftWidth = MinLeftWidth;
+        MidWidth = std::max(MinMidWidth * 0.9f, AvailableWidth - MinLeftWidth - MinRightWidth);
+    }
+    else
+    {
+        LeftWidth = std::max(140.0f, AvailableWidth * 0.4f);
+        MidWidth  = std::max(160.0f, AvailableWidth * 0.4f);
+    }
+
+    MainView.VSplitLeft(LeftWidth, &LeftView, &MainView);
+    MainView.VSplitLeft(GapSize, nullptr, &MainView);
+    MainView.VSplitLeft(MidWidth, &MidView, &MainView);
+    MainView.VSplitLeft(GapSize, nullptr, &MainView);
+    RightView = MainView;
+
+    // Внутренние мелкие отступы колонок
+    LeftView.VSplitLeft(4.0f, nullptr, &LeftView);
+    MidView.VSplitLeft(4.0f, nullptr, &MidView);
+    RightView.VSplitRight(MARGIN_SMALL, &RightView, nullptr);
+
+    // Рендерим фоны секций из предыдущего кадра (до обновления списка)
+    for(size_t i = 0; i < s_SectionBoxes.size(); ++i)
+    {
+        RenderBackgroundLines(s_SectionBoxes[i], (int)i);
+        CUIRect Section = s_SectionBoxes[i];
+        float Padding = MARGIN_BETWEEN_VIEWS * 0.5f; // регулируйте плотность
+        Section.w += Padding;
+        Section.h += Padding;
+        Section.x -= Padding * 0.5f;
+        Section.y -= Padding * 0.5f;
+        Section.y -= s_PrevScrollOffset.y - ScrollOffset.y;
+        Section.Draw(ColorRGBA(0, 0, 0, 0.20f), IGraphics::CORNER_ALL, 10.0f);
+    }
+    s_PrevScrollOffset = ScrollOffset;
+    s_SectionBoxes.clear();
+
+    // ===== LeftView =====
+    {
+        CUIRect Column = LeftView;
+        CUIRect Header;
+        Column.HSplitTop(MARGIN, nullptr, &Column);
+        { CUIRect Bg = Column; Bg.VMargin(MARGIN_SMALL, &Bg); s_SectionBoxes.push_back(Bg); }
+        Column.HSplitTop(HEADLINE_HEIGHT, &Header, &Column);
+        Ui()->DoLabel(&Header, Localize("Left Section"), HEADLINE_FONT_SIZE, TEXTALIGN_ML);
+        Column.HSplitTop(MARGIN_SMALL, nullptr, &Column);
+
+        // 1) Чекбокс
+        static int s_CheckVal = 0;
+        DoCheckBoxRow(Column, LINE_SIZE, Localize("Enable feature"), s_CheckVal);
+
+        Column.HSplitTop(MARGIN_EXTRA_SMALL, nullptr, &Column);
+
+        // 2) Ряд-"шестерёнка" (как чекбокс, но с иконкой справа)
+        static int s_GearToggle = 0;
+        DoGearToggleRow(Column, LINE_SIZE, Localize("Advanced settings"), s_GearToggle);
+
+        Column.HSplitTop(MARGIN_EXTRA_SMALL, nullptr, &Column);
+
+        // 3) Круговые тогглы (пустой/с точкой)
+        static int s_CircleToggle = 0;
+        DoCircleToggleRow(Column, LINE_SIZE, Localize("Circle toggle"), s_CircleToggle);
+
+        // 3b) В прямоугольнике справа или в произвольной области
+        CUIRect InlineRect;
+        Column.HSplitTop(LINE_SIZE, &InlineRect, &Column);
+        InlineRect.VSplitRight(100.0f, &InlineRect, &InlineRect); // пример размещения справа
+        DoCircleToggleInRect(InlineRect, "", s_CircleToggle);
+
+        s_SectionBoxes.back().h = Column.y - s_SectionBoxes.back().y;
+    }
+
+    // ===== MidView =====
+    {
+        CUIRect Column = MidView;
+        CUIRect Header;
+        Column.HSplitTop(MARGIN, nullptr, &Column);
+        { CUIRect Bg = Column; Bg.VMargin(MARGIN_SMALL, &Bg); s_SectionBoxes.push_back(Bg); }
+        Column.HSplitTop(HEADLINE_HEIGHT, &Header, &Column);
+        Ui()->DoLabel(&Header, Localize("Mid Section"), HEADLINE_FONT_SIZE, TEXTALIGN_ML);
+        Column.HSplitTop(MARGIN_SMALL, nullptr, &Column);
+
+        // 4) Слайдер (с единицами измерения и pAdjust для сдвига/удлинения)
+        static int s_SliderVal = 50;
+        // pAdjust поддерживает:
+        //  - l  : сдвинуть слайдер + значение влево
+        //  - r  : сдвинуть слайдер + значение вправо
+        //  - ll : увеличить длину линии влево
+        //  - lr : увеличить длину линии вправо
+        DoSliderRow(Column, LINE_SIZE, Localize("Opacity"), s_SliderVal, 0, 100, "%", "40l+40lr");
+
+        Column.HSplitTop(MARGIN_SMALL, nullptr, &Column);
+
+        // 5) Кейбинд (кнопка для захвата клавиши + модификаторы)
+        static CButtonContainer s_KeyBindBtn;
+        static int s_Key = 0;
+        static int s_Mod = 0;
+        DoKeyBindRow(Column, LINE_SIZE, Localize("Action key"), "toggle example_action 0 1", s_KeyBindBtn, s_Key, s_Mod);
+
+        Column.HSplitTop(MARGIN_SMALL, nullptr, &Column);
+
+        // 6) Выпадающий список: адаптивный (лейбл+капсула)
+        static const char *s_aModes[] = {
+            Localize("Mode A"), Localize("Mode B"), Localize("Mode C")
+        };
+        static CUi::SDropDownState s_ModeDD;
+        static CScrollRegion s_ModeDDScroll;
+        s_ModeDD.m_SelectionPopupContext.m_pScrollRegion = &s_ModeDDScroll;
+        static int s_Mode = 0;
+        s_Mode = DoLabeledDropDownRow(Column, LINE_SIZE, Localize("Mode:"), s_Mode, s_aModes, std::size(s_aModes), s_ModeDD);
+
+        Column.HSplitTop(MARGIN_SMALL, nullptr, &Column);
+
+        // 6b) Альтернатива: ручная разбивка под DoDropDownPill
+        CUIRect Row, Label, Drop;
+        Column.HSplitTop(LINE_SIZE, &Row, &Column);
+        Row.VSplitLeft(120.0f, &Label, &Drop);
+        Ui()->DoLabel(&Label, Localize("Manual DD:"), 12.0f, TEXTALIGN_ML);
+        static CUi::SDropDownState s_ManualDD;
+        static CScrollRegion s_ManualDDScroll;
+        s_ManualDD.m_SelectionPopupContext.m_pScrollRegion = &s_ManualDDScroll;
+        static const char *s_aManual[] = {Localize("One"), Localize("Two")};
+        static int s_ManualSel = 0;
+        s_ManualSel = DoDropDownPill(&Drop, s_ManualSel, s_aManual, std::size(s_aManual), s_ManualDD);
+
+        s_SectionBoxes.back().h = Column.y - s_SectionBoxes.back().y;
+    }
+
+    // ===== RightView =====
+    {
+        CUIRect Column = RightView;
+        CUIRect Header;
+        Column.HSplitTop(MARGIN, nullptr, &Column);
+        { CUIRect Bg = Column; Bg.VMargin(MARGIN_SMALL, &Bg); s_SectionBoxes.push_back(Bg); }
+        Column.HSplitTop(HEADLINE_HEIGHT, &Header, &Column);
+        Ui()->DoLabel(&Header, Localize("Right Section"), HEADLINE_FONT_SIZE, TEXTALIGN_ML);
+        Column.HSplitTop(MARGIN_SMALL, nullptr, &Column);
+
+        // Пример цветопикера как отдельной строки с подписью
+        // (внутри DoLine_ColorPicker есть CheckBoxSpacing, можно делать компактнее)
+        static CButtonContainer s_ColorReset;
+        DoLine_ColorPicker(&s_ColorReset, COLOR_PICKER_LINE_SIZE, COLOR_PICKER_LABEL_SIZE, COLOR_PICKER_LINE_SPACING,
+            &Column, Localize("Color"), &g_Config.m_ClMessageHighlightColor, ColorRGBA(1,1,1,1), false, nullptr, true);
+
+        Column.HSplitTop(MARGIN_SMALL, nullptr, &Column);
+
+        // Ещё один слайдер с другим pAdjust (сдвиг вправо и удлинение вправо)
+        static int s_Slider2 = 25;
+        DoSliderRow(Column, LINE_SIZE, Localize("Intensity"), s_Slider2, 0, 100, "%", "20r+30lr");
+
+        s_SectionBoxes.back().h = Column.y - s_SectionBoxes.back().y;
+    }
+
+    // Завершение прокрутки
+    CUIRect ScrollRegion;
+    ScrollRegion.x = MainView.x;
+    ScrollRegion.y = maximum(maximum(LeftView.y, MidView.y), RightView.y) + MARGIN * 2.0f;
+    ScrollRegion.w = MainView.w;
+    ScrollRegion.h = 0.0f;
+    s_ScrollRegion.AddRect(ScrollRegion);
+    s_ScrollRegion.End();
+}
+
+----------------------------------------
+Заметки по стилю и масштабированию
+----------------------------------------
+- Для промежутков между колонками используйте одну переменную (например, MARGIN_BLOCKS), чтобы менять плотность всей вкладки одной точкой.
+- Для адаптивной ширины лейбла у дропдаунов используйте DoLabeledDropDownRow.
+- Для слайдеров задавайте единицы измерения и pAdjust там, где нужно сместить/удлинить трек.
+- Минимальные ширины колонок подберите под содержимое вкладки, чтобы в узком окне элементы не ломались.
+- Если колонка слишком узкая, лучше стекать ряд в две строки (пример: вручную разбить на Label+контрол на 2 строки).

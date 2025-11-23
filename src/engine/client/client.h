@@ -180,7 +180,7 @@ class CClient : public IClient, public CDemoPlayer::IListener
     } m_aInputs[NUM_DUMMIES][200];
 
     int m_aCurrentInput[NUM_DUMMIES] = {0, 0, 0, 0};
-    bool m_LastDummy = false;
+    int m_LastDummy = 0;
     bool m_aDummySendConnInfo[NUM_DUMMIES] = {false, false, false, false};
     bool m_aDummyConnecting[NUM_DUMMIES] = {false, false, false, false};
     bool m_aDummyConnected[NUM_DUMMIES] = {false, false, false, false};
@@ -335,6 +335,7 @@ public:
     void Disconnect() override;
 
     void DummyDisconnect(const char *pReason) override;
+    void DummyDisconnectAll(const char *pReason) override;
     void DummyConnect() override;
     void DummyConnect2() override;
     void DummyConnect3() override;
@@ -419,6 +420,7 @@ public:
     static void Con_DummyConnect2(IConsole::IResult *pResult, void *pUserData);
     static void Con_DummyConnect3(IConsole::IResult *pResult, void *pUserData);
     static void Con_DummyDisconnect(IConsole::IResult *pResult, void *pUserData);
+    static void Con_DummyDisconnectAll(IConsole::IResult *pResult, void *pUserData);
     static void Con_DummyResetInput(IConsole::IResult *pResult, void *pUserData);
 
     static void Con_Quit(IConsole::IResult *pResult, void *pUserData);
